@@ -1,0 +1,567 @@
+><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Awesome Quiz App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for the quiz app */
+        body {
+            font-family: "Inter", sans-serif;
+            background-color: #df1cdf; /* Light blue-gray background */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .quiz-container {
+            background-color: #b71818;
+            border-radius: 1.5rem; /* More rounded corners */
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1); /* Softer shadow */
+            padding: 2.5rem; /* Increased padding */
+            width: 90%;
+            max-width: 600px;
+            text-align: center;
+        }
+        .question-text {
+            font-size: 1.75rem; /* Larger question font */
+            font-weight: 700; /* Bold font */
+            margin-bottom: 2rem; /* More space below question */
+            color: #2d3748; /* Darker text for question */
+        }
+        .answer-buttons button {
+            background-color: #2468c0; /* Light gray for buttons */
+            color: #4a5568; /* Darker text for buttons */
+            border: none;
+            border-radius: 0.75rem; /* Rounded button corners */
+            padding: 1rem 1.5rem; /* Generous padding */
+            margin: 0.75rem 0; /* Vertical spacing */
+            width: 100%;
+            font-size: 1.125rem; /* Larger font size for answers */
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Subtle button shadow */
+        }
+        .answer-buttons button:hover:not(.correct):not(.incorrect) {
+            background-color: #cbd5e0; /* Slightly darker on hover */
+            transform: translateY(-2px); /* Slight lift effect */
+        }
+        .answer-buttons button.correct {
+            background-color: #48bb78; /* Green for correct */
+            color: white;
+            animation: pulse-correct 0.5s ease-in-out;
+        }
+        .answer-buttons button.incorrect {
+            background-color: #ef4444; /* Red for incorrect */
+            color: white;
+            animation: shake-incorrect 0.3s ease-in-out;
+        }
+        .next-btn, .restart-btn, .generate-quiz-btn, .explain-btn {
+            background-color: #4299e1; /* Blue for action buttons */
+            color: white;
+            border: none;
+            border-radius: 0.75rem;
+            padding: 0.75rem 1.5rem;
+            margin-top: 2rem;
+            font-size: 1.125rem;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .next-btn:hover, .restart-btn:hover, .generate-quiz-btn:hover, .explain-btn:hover {
+            background-color: #3182ce; /* Darker blue on hover */
+            transform: translateY(-2px);
+        }
+        .next-btn:disabled, .restart-btn:disabled, .generate-quiz-btn:disabled, .explain-btn:disabled {
+            background-color: #a0aec0; /* Gray out disabled buttons */
+            cursor: not-allowed;
+        }
+        .score-area {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-top: 1.5rem;
+            color: #4a5568;
+        }
+        .feedback-message {
+            margin-top: 1rem;
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+        .feedback-message.correct-feedback {
+            color: #2f855a; /* Darker green */
+        }
+        .feedback-message.incorrect-feedback {
+            color: #c53030; /* Darker red */
+        }
+        .explanation-area {
+            background-color: #edf2f7; /* Light gray background for explanation */
+            border-left: 4px solid #4299e1; /* Blue border */
+            padding: 1rem;
+            margin-top: 1.5rem;
+            border-radius: 0.5rem;
+            text-align: left;
+            color: #2d3748;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+        .loading-spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: #4299e1;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            vertical-align: middle;
+            margin-left: 10px;
+        }
+
+        /* Animations */
+        @keyframes pulse-correct {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+            100% { transform: scale(1); }
+        }
+        @keyframes shake-incorrect {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-5px); }
+            40%, 80% { transform: translateX(5px); }
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+    <div class="quiz-container">
+        <h1 class="text-3xl font-bold text-gray-800 mb-6">Awesome Quiz!</h1>
+        <div class="quiz-area">
+            <div id="question-display" class="question-text"></div>
+            <div id="answer-buttons" class="answer-buttons grid gap-3">
+                </div>
+            <div id="feedback-message" class="feedback-message"></div>
+            <div id="explanation-area" class="explanation-area hidden"></div>
+            <button id="next-button" class="next-btn hidden">Next Question</button>
+            <button id="explain-button" class="explain-btn hidden">Explain Answer ✨</button>
+            <button id="restart-button" class="restart-btn hidden">Restart Quiz</button>
+            <button id="generate-quiz-button" class="generate-quiz-btn mt-4">Generate Quiz on Topic ✨</button>
+        </div>
+        <div id="score-display" class="score-area mt-4">Score: 0 / 0</div>
+    </div>
+
+    <script>
+        // Initial array of quiz questions
+        let questions = [
+            {
+                question: "What is the capital of France?",
+                answers: [
+                    { text: "Berlin", correct: false },
+                    { text: "Madrid", correct: false },
+                    { text: "Paris", correct: true },
+                    { text: "Rome", correct: false }
+                ]
+            },
+            {
+                question: "Which planet is known as the 'Red Planet'?",
+                answers: [
+                    { text: "Earth", correct: false },
+                    { text: "Mars", correct: true },
+                    { text: "Jupiter", correct: false },
+                    { text: "Venus", correct: false }
+                ]
+            },
+            {
+                question: "What is the largest ocean on Earth?",
+                answers: [
+                    { text: "Atlantic Ocean", correct: false },
+                    { text: "Indian Ocean", correct: false },
+                    { text: "Arctic Ocean", correct: false },
+                    { text: "Pacific Ocean", correct: true }
+                ]
+            },
+            {
+                question: "Who painted the Mona Lisa?",
+                answers: [
+                    { text: "Vincent van Gogh", correct: false },
+                    { text: "Pablo Picasso", correct: false },
+                    { text: "Leonardo da Vinci", correct: true },
+                    { text: "Claude Monet", correct: false }
+                ]
+            },
+            {
+                question: "What is the chemical symbol for water?",
+                answers: [
+                    { text: "O2", correct: false },
+                    { text: "H2O", correct: true },
+                    { text: "CO2", correct: false },
+                    { text: "NaCl", correct: false }
+                ]
+            }
+        ];
+
+        // Get references to HTML elements
+        const questionDisplay = document.getElementById('question-display');
+        const answerButtons = document.getElementById('answer-buttons');
+        const nextButton = document.getElementById('next-button');
+        const restartButton = document.getElementById('restart-button');
+        const scoreDisplay = document.getElementById('score-display');
+        const feedbackMessage = document.getElementById('feedback-message');
+        const generateQuizButton = document.getElementById('generate-quiz-button');
+        const explainButton = document.getElementById('explain-button');
+        const explanationArea = document.getElementById('explanation-area');
+
+        let currentQuestionIndex = 0; // Tracks the current question
+        let score = 0;               // Tracks the user's score
+        let isLoading = false;       // Flag to prevent multiple API calls
+
+        /**
+         * Disables all interactive buttons to prevent user interaction during loading.
+         */
+        function disableButtons() {
+            nextButton.disabled = true;
+            restartButton.disabled = true;
+            generateQuizButton.disabled = true;
+            explainButton.disabled = true;
+            Array.from(answerButtons.children).forEach(button => {
+                button.disabled = true;
+            });
+        }
+
+        /**
+         * Enables all interactive buttons after loading is complete.
+         */
+        function enableButtons() {
+            nextButton.disabled = false;
+            restartButton.disabled = false;
+            generateQuizButton.disabled = false;
+            explainButton.disabled = false;
+            Array.from(answerButtons.children).forEach(button => {
+                button.disabled = false;
+            });
+        }
+
+        /**
+         * Shows a loading spinner and disables buttons.
+         * @param {HTMLElement} buttonElement - The button element to add the spinner to.
+         */
+        function showLoading(buttonElement) {
+            isLoading = true;
+            disableButtons();
+            buttonElement.innerHTML += ' <span class="loading-spinner"></span>';
+        }
+
+        /**
+         * Hides the loading spinner and enables buttons.
+         * @param {HTMLElement} buttonElement - The button element to remove the spinner from.
+         * @param {string} originalText - The original text of the button.
+         */
+        function hideLoading(buttonElement, originalText) {
+            isLoading = false;
+            enableButtons();
+            buttonElement.innerHTML = originalText;
+        }
+
+        /**
+         * Starts the quiz by resetting state and displaying the first question.
+         */
+        function startQuiz() {
+            currentQuestionIndex = 0;
+            score = 0;
+            nextButton.classList.add('hidden'); // Hide next button initially
+            restartButton.classList.add('hidden'); // Hide restart button initially
+            explainButton.classList.add('hidden'); // Hide explain button initially
+            feedbackMessage.textContent = ''; // Clear any previous feedback
+            explanationArea.classList.add('hidden'); // Hide explanation area
+            explanationArea.textContent = ''; // Clear explanation text
+            showQuestion(); // Display the first question
+            updateScoreDisplay(); // Update score display
+        }
+
+        /**
+         * Displays the current question and its answer options.
+         */
+        function showQuestion() {
+            resetState(); // Clear previous answer buttons and feedback
+
+            if (questions.length === 0) {
+                questionDisplay.textContent = "No questions available. Generate a new quiz!";
+                generateQuizButton.classList.remove('hidden');
+                return;
+            }
+
+            let currentQuestion = questions[currentQuestionIndex];
+            let questionNo = currentQuestionIndex + 1;
+            questionDisplay.textContent = `${questionNo}. ${currentQuestion.question}`; // Display question text
+
+            // Create buttons for each answer option
+            currentQuestion.answers.forEach(answer => {
+                const button = document.createElement('button');
+                button.textContent = answer.text;
+                button.classList.add('btn'); // Add a class for styling
+                if (answer.correct) {
+                    button.dataset.correct = true; // Mark correct answer for later checking
+                }
+                button.addEventListener('click', selectAnswer); // Add click listener
+                answerButtons.appendChild(button); // Add button to the DOM
+            });
+        }
+
+        /**
+         * Resets the UI state by clearing answer buttons and feedback.
+         */
+        function resetState() {
+            nextButton.classList.add('hidden'); // Hide next button
+            restartButton.classList.add('hidden'); // Hide restart button
+            explainButton.classList.add('hidden'); // Hide explain button
+            feedbackMessage.textContent = ''; // Clear feedback message
+            explanationArea.classList.add('hidden'); // Hide explanation area
+            explanationArea.textContent = ''; // Clear explanation text
+            while (answerButtons.firstChild) {
+                answerButtons.removeChild(answerButtons.firstChild); // Remove all answer buttons
+            }
+        }
+
+        /**
+         * Handles the user's answer selection.
+         * @param {Event} e - The click event object.
+         */
+        function selectAnswer(e) {
+            const selectedBtn = e.target;
+            const isCorrect = selectedBtn.dataset.correct === 'true'; // Check if selected answer is correct
+
+            if (isCorrect) {
+                selectedBtn.classList.add('correct'); // Apply correct styling
+                feedbackMessage.textContent = 'Correct!';
+                feedbackMessage.classList.remove('incorrect-feedback');
+                feedbackMessage.classList.add('correct-feedback');
+                score++; // Increment score if correct
+            } else {
+                selectedBtn.classList.add('incorrect'); // Apply incorrect styling
+                feedbackMessage.textContent = 'Incorrect!';
+                feedbackMessage.classList.remove('correct-feedback');
+                feedbackMessage.classList.add('incorrect-feedback');
+                // Find and highlight the correct answer
+                Array.from(answerButtons.children).forEach(button => {
+                    if (button.dataset.correct === 'true') {
+                        button.classList.add('correct');
+                    }
+                });
+            }
+
+            // Disable all answer buttons after selection
+            Array.from(answerButtons.children).forEach(button => {
+                button.disabled = true;
+            });
+
+            updateScoreDisplay(); // Update score display
+            nextButton.classList.remove('hidden'); // Show the next button
+            explainButton.classList.remove('hidden'); // Show the explain button
+        }
+
+        /**
+         * Updates the score display.
+         */
+        function updateScoreDisplay() {
+            scoreDisplay.textContent = `Score: ${score} / ${questions.length}`;
+        }
+
+        /**
+         * Handles the click on the "Next Question" button.
+         */
+        nextButton.addEventListener('click', () => {
+            currentQuestionIndex++; // Move to the next question
+            if (currentQuestionIndex < questions.length) {
+                showQuestion(); // Show the next question
+            } else {
+                showScore(); // If no more questions, show final score
+            }
+        });
+
+        /**
+         * Displays the final score and the restart button.
+         */
+        function showScore() {
+            resetState(); // Clear question and buttons
+            questionDisplay.textContent = `You scored ${score} out of ${questions.length} questions!`;
+            feedbackMessage.textContent = ''; // Clear feedback
+            nextButton.classList.add('hidden'); // Hide next button
+            explainButton.classList.add('hidden'); // Hide explain button
+            restartButton.classList.remove('hidden'); // Show restart button
+            generateQuizButton.classList.remove('hidden'); // Show generate quiz button
+        }
+
+        /**
+         * Handles the click on the "Restart Quiz" button.
+         */
+        restartButton.addEventListener('click', startQuiz);
+
+        /**
+         * Generates a new quiz based on a user-provided topic using the Gemini API.
+         */
+        generateQuizButton.addEventListener('click', async () => {
+            const topic = prompt("Enter a topic for your quiz (e.g., 'World History', 'Science', 'Literature'):");
+            if (!topic) {
+                return; // User cancelled
+            }
+
+            const originalButtonText = generateQuizButton.innerHTML;
+            showLoading(generateQuizButton);
+            explanationArea.classList.add('hidden'); // Hide explanation area
+            explanationArea.textContent = ''; // Clear explanation text
+
+            try {
+                // Prompt for the LLM to generate quiz questions in JSON format
+                const prompt = `Generate a quiz with 5 multiple-choice questions about "${topic}". Each question should have 4 answer options, with only one correct answer. Provide the output as a JSON array of objects, where each object has a "question" field (string) and an "answers" field (array of objects, each with "text" (string) and "correct" (boolean)). Example format: [{"question": "...", "answers": [{"text": "...", "correct": true}, {"text": "...", "correct": false}]}]`;
+
+                let chatHistory = [];
+                chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+
+                const payload = {
+                    contents: chatHistory,
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: "ARRAY",
+                            items: {
+                                type: "OBJECT",
+                                properties: {
+                                    "question": { "type": "STRING" },
+                                    "answers": {
+                                        "type": "ARRAY",
+                                        "items": {
+                                            "type": "OBJECT",
+                                            "properties": {
+                                                "text": { "type": "STRING" },
+                                                "correct": { "type": "BOOLEAN" }
+                                            },
+                                            "required": ["text", "correct"]
+                                        }
+                                    }
+                                },
+                                "required": ["question", "answers"]
+                            }
+                        }
+                    }
+                };
+                const apiKey = ""; // If you want to use models other than gemini-2.0-flash or imagen-3.0-generate-002, provide an API key here. Otherwise, leave this as-is.
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const jsonString = result.candidates[0].content.parts[0].text;
+                    try {
+                        const generatedQuestions = JSON.parse(jsonString);
+                        if (Array.isArray(generatedQuestions) && generatedQuestions.every(q => q.question && Array.isArray(q.answers))) {
+                            questions = generatedQuestions; // Replace existing questions
+                            startQuiz(); // Start the quiz with new questions
+                            feedbackMessage.textContent = `Quiz on "${topic}" generated successfully!`;
+                            feedbackMessage.classList.remove('incorrect-feedback');
+                            feedbackMessage.classList.add('correct-feedback');
+                        } else {
+                            feedbackMessage.textContent = 'Failed to parse generated quiz data. Please try again.';
+                            feedbackMessage.classList.remove('correct-feedback');
+                            feedbackMessage.classList.add('incorrect-feedback');
+                        }
+                    } catch (parseError) {
+                        console.error("Error parsing JSON:", parseError);
+                        feedbackMessage.textContent = 'Error parsing generated quiz data. The LLM might have returned malformed JSON.';
+                        feedbackMessage.classList.remove('correct-feedback');
+                        feedbackMessage.classList.add('incorrect-feedback');
+                    }
+                } else {
+                    feedbackMessage.textContent = 'No quiz questions were generated. Please try a different topic.';
+                    feedbackMessage.classList.remove('correct-feedback');
+                    feedbackMessage.classList.add('incorrect-feedback');
+                }
+            } catch (error) {
+                console.error("Error generating quiz:", error);
+                feedbackMessage.textContent = `Error generating quiz: ${error.message}. Please try again.`;
+                feedbackMessage.classList.remove('correct-feedback');
+                feedbackMessage.classList.add('incorrect-feedback');
+            } finally {
+                hideLoading(generateQuizButton, originalButtonText);
+            }
+        });
+
+        /**
+         * Explains the correct answer for the current question using the Gemini API.
+         */
+        explainButton.addEventListener('click', async () => {
+            const originalButtonText = explainButton.innerHTML;
+            showLoading(explainButton);
+            explanationArea.classList.add('hidden'); // Hide previous explanation
+            explanationArea.textContent = ''; // Clear previous explanation
+
+            try {
+                const currentQuestion = questions[currentQuestionIndex];
+                const correctAnswer = currentQuestion.answers.find(a => a.correct);
+                if (!correctAnswer) {
+                    explanationArea.textContent = "Could not find the correct answer to explain.";
+                    explanationArea.classList.remove('hidden');
+                    return;
+                }
+
+                const prompt = `Explain why "${correctAnswer.text}" is the correct answer for the question: "${currentQuestion.question}". Keep the explanation concise and informative.`;
+
+                let chatHistory = [];
+                chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+
+                const payload = { contents: chatHistory };
+                const apiKey = ""; // If you want to use models other than gemini-2.0-flash or imagen-3.0-generate-002, provide an API key here. Otherwise, leave this as-is.
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const explanation = result.candidates[0].content.parts[0].text;
+                    explanationArea.textContent = explanation;
+                    explanationArea.classList.remove('hidden');
+                } else {
+                    explanationArea.textContent = 'Could not generate an explanation. Please try again.';
+                    explanationArea.classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error("Error explaining answer:", error);
+                explanationArea.textContent = `Error getting explanation: ${error.message}.`;
+                explanationArea.classList.remove('hidden');
+            } finally {
+                hideLoading(explainButton, originalButtonText);
+            }
+        });
+
+        // Start the quiz when the page loads
+        window.onload = startQuiz;
+    </script>
+</body>
+</html>
+
+
+
